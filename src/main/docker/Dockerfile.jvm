@@ -1,22 +1,36 @@
 ####
-# This Dockerfile is used in order to build a container that runs the Quarkus application in JVM mode
+# Dockerfile for Quarkus fast-jar (Gradle build)
 #
-# Before building the docker image run:
+# Build locally:
+#   ./gradlew clean build -x test
+#   docker build -f src/main/docker/Dockerfile.jvm -t uda-server .
 #
-# mvn package
+# Run locally:
+#   docker run -i --rm -p 8080:8080 uda-server
 #
-# Then, build the image with:
-#
-# docker build -f src/main/docker/Dockerfile.jvm -t quarkus/voice-plugin-indexed-data-jvm .
-#
-# Then run the container using:
-#
-# docker run -i --rm -p 8080:8080 quarkus/voice-plugin-indexed-data-jvm
-#
-###
-FROM fabric8/java-alpine-openjdk8-jre
-ENV JAVA_OPTIONS="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
-ENV AB_ENABLED=jmx_exporter
-COPY target/lib/* /deployments/lib/
-COPY target/*-runner.jar /deployments/app.jar
-ENTRYPOINT [ "/deployments/run-java.sh" ]
+# This image expects the Gradle fast-jar layout at build/quarkus-app/
+####
+FROM eclipse-temurin:17-jre-alpine
+
+RUN addgroup -S app && adduser -S -G app -u 185 app \
+    && mkdir -p /deployments \
+    && chown -R app:app /deployments
+
+WORKDIR /deployments
+
+COPY --chown=app:app build/quarkus-app/lib/ /deployments/lib/
+COPY --chown=app:app build/quarkus-app/*.jar /deployments/
+COPY --chown=app:app build/quarkus-app/app/ /deployments/app/
+COPY --chown=app:app build/quarkus-app/quarkus/ /deployments/quarkus/
+
+USER 185
+EXPOSE 8080
+
+ENV LANG=C.UTF-8 \
+    JAVA_OPTS="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager" \
+    JAVA_APP_JAR="/deployments/quarkus-run.jar"
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:8080/q/health/ready >/dev/null 2>&1 || exit 1
+
+ENTRYPOINT ["/bin/sh", "-c", "exec java $JAVA_OPTS -jar $JAVA_APP_JAR"]
