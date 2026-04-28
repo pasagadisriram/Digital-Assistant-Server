@@ -34,6 +34,12 @@ To launch the backend with automatic environmental validation:
     * Check Elasticsearch and NestJS API health.
 2. **Launch Quarkus**: Starts the application in dev mode (`./gradlew quarkusDev`) only if all checks pass.
 
+### CI → release bump (`udan-infra`)
+
+After a push to `dev` / `main`, CI publishes the image and calls `repository_dispatch` on **`pasagadisriram/udan-infra`** to bump `deploy/releases/<env>.yaml`. That requires a repo secret **`INFRA_DISPATCH_TOKEN`** (fine-grained PAT with Contents read/write on `udan-infra` only).
+
+Setup (one-time): https://github.com/pasagadisriram/udan-infra/blob/dev/docs/runbooks/app-repo-pat-setup.md
+
 ### 3. Manual Pre-flight Check (Optional)
 If you only want to verify the infrastructure health without starting the server:
 
